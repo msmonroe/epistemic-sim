@@ -1,0 +1,84 @@
+<mujoco model="epistemic_arena">
+
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="RK4"/>
+
+  <visual>
+    <headlight ambient="0.5 0.5 0.5" diffuse="0.7 0.7 0.7" specular="0.1 0.1 0.1"/>
+    <rgba haze="0.15 0.18 0.22 1"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker"
+             rgb1="0.15 0.15 0.2" rgb2="0.22 0.22 0.3"
+             width="512" height="512"/>
+    <material name="floor_mat" texture="grid" texrepeat="8 8" reflectance="0.15"/>
+    <material name="wall_mat"  rgba="0.3 0.4 0.5 1"/>
+    <material name="agent_mat" rgba="0.2 0.75 0.95 1"/>
+    <material name="target_mat" rgba="1.0 0.55 0.1 1"/>
+    <material name="obstacle_mat" rgba="0.65 0.22 0.22 1"/>
+  </asset>
+
+  <worldbody>
+
+    <!-- Lighting -->
+    <light name="sun"  pos="0 0 8"  dir="0 0 -1"
+           ambient="0.5 0.5 0.5" diffuse="0.85 0.85 0.8"
+           specular="0.2 0.2 0.2" castshadow="true"/>
+    <light name="fill" pos="5 -5 5" dir="-1 1 -1"
+           ambient="0.1 0.12 0.15" diffuse="0.35 0.38 0.45"
+           castshadow="false"/>
+
+    <!-- Floor -->
+    <geom name="floor" type="plane" size="6 6 0.1"
+          material="floor_mat" condim="3" friction="0.8 0.02 0.001"/>
+
+    <!-- Walls -->
+    <geom name="wall_n" type="box" size="5.1 0.1 0.5" pos="0  5.1 0.5" material="wall_mat"/>
+    <geom name="wall_s" type="box" size="5.1 0.1 0.5" pos="0 -5.1 0.5" material="wall_mat"/>
+    <geom name="wall_e" type="box" size="0.1 5.1 0.5" pos=" 5.1 0 0.5" material="wall_mat"/>
+    <geom name="wall_w" type="box" size="0.1 5.1 0.5" pos="-5.1 0 0.5" material="wall_mat"/>
+
+    <!-- Obstacles -->
+    <geom name="obs_0" type="box" size="0.4 0.4 0.5" pos=" 2.0  1.5 0.5" material="obstacle_mat"/>
+    <geom name="obs_1" type="box" size="0.4 0.4 0.5" pos="-1.5  2.5 0.5" material="obstacle_mat"/>
+    <geom name="obs_2" type="box" size="0.4 0.4 0.5" pos=" 1.0 -2.0 0.5" material="obstacle_mat"/>
+    <geom name="obs_3" type="box" size="0.4 0.4 0.5" pos="-2.5 -1.0 0.5" material="obstacle_mat"/>
+
+    <!-- Agent -->
+    <body name="agent" pos="0 0 0.15">
+      <freejoint name="agent_joint"/>
+      <geom name="agent_body" type="cylinder" size="0.18 0.12"
+            material="agent_mat" mass="1.0" condim="3"/>
+      <camera name="agent_cam" pos="0.15 0 0.08" euler="0 0 0" fovy="60"/>
+      <camera name="track_agent" pos="0 0 6" euler="0 0 0" mode="trackcom"/>
+      <site name="prox_0" pos=" 0.18  0.00 0" size="0.01"/>
+      <site name="prox_1" pos=" 0.13  0.13 0" size="0.01"/>
+      <site name="prox_2" pos=" 0.00  0.18 0" size="0.01"/>
+      <site name="prox_3" pos="-0.13  0.13 0" size="0.01"/>
+      <site name="prox_4" pos="-0.18  0.00 0" size="0.01"/>
+      <site name="prox_5" pos="-0.13 -0.13 0" size="0.01"/>
+      <site name="prox_6" pos=" 0.00 -0.18 0" size="0.01"/>
+      <site name="prox_7" pos=" 0.13 -0.13 0" size="0.01"/>
+    </body>
+
+    <!-- Sound target -->
+    <body name="target" pos="3.0 3.0 0.3">
+      <geom name="target_geom" type="sphere" size="0.25"
+            material="target_mat" mass="0.01" contype="0" conaffinity="0"/>
+    </body>
+
+  </worldbody>
+
+  <actuator>
+    <velocity name="left_wheel"  joint="agent_joint" gear="1 0 0 0 0 0" kv="5"/>
+    <velocity name="right_wheel" joint="agent_joint" gear="1 0 0 0 0 0" kv="5"/>
+  </actuator>
+
+  <sensor>
+    <accelerometer name="agent_accel" site="prox_0"/>
+    <gyro          name="agent_gyro"  site="prox_0"/>
+  </sensor>
+
+</mujoco>
