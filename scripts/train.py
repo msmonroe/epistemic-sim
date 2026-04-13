@@ -63,6 +63,7 @@ def train(exp_name: str = "baseline", total_steps: int = 50_000):
         clip_range=0.2,
         ent_coef=0.01,
         verbose=0,
+        device="cpu",
     )
 
     callback = EpistemicCallback(log_interval=500, verbose=1)

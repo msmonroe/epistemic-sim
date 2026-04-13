@@ -23,6 +23,7 @@ os.environ.setdefault("MUJOCO_GL", "egl")
 
 import numpy as np
 from collections import defaultdict
+import multiprocessing as mp
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 
@@ -54,6 +55,17 @@ def make_env(degradation=None) -> EpistemicWrapper:
     return EpistemicWrapper(env)
 
 
+def run_experiment_worker(args: tuple) -> tuple[str, dict]:
+    """Top-level worker for multiprocessing — trains + evaluates one experiment."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    os.environ.setdefault("MUJOCO_GL", "egl")
+    name, degradation = args
+    model = train_experiment(name, degradation, TRAIN_STEPS)
+    data  = evaluate_experiment(name, model, degradation)
+    return name, data
+
+
 def train_experiment(name: str, degradation, steps: int) -> PPO:
     print(f"\n  {'─'*50}")
     print(f"  TRAINING: {name}  ({steps:,} steps)")
@@ -65,6 +77,7 @@ def train_experiment(name: str, degradation, steps: int) -> PPO:
         n_steps=512, batch_size=64, n_epochs=4,
         learning_rate=3e-4, gamma=0.99, gae_lambda=0.95,
         clip_range=0.2, ent_coef=0.01, verbose=0,
+        device="cpu",
     )
     cb = EpistemicCallback(log_interval=5000, verbose=1)
     model.learn(total_timesteps=steps, callback=cb)
@@ -132,21 +145,25 @@ def evaluate_experiment(
 
 def main():
     os.makedirs("results", exist_ok=True)
-    all_results = {}
 
-    for name, degradation in EXPERIMENTS.items():
-        model = train_experiment(name, degradation, TRAIN_STEPS)
-        data  = evaluate_experiment(name, model, degradation)
-        all_results[name] = data
+    n_workers = min(len(EXPERIMENTS), mp.cpu_count())
+    print(f"\n  Running {len(EXPERIMENTS)} experiments in parallel ({n_workers} workers)\n")
 
-        mean_r  = data["ep_reward"].mean()
-        mean_l  = data["ep_len"].mean()
-        v_oob   = data["vision_oob"].mean() * 100
-        a_oob   = data["audio_oob"].mean()  * 100
-        p_oob   = data["proximity_oob"].mean() * 100
+    args = list(EXPERIMENTS.items())   # [(name, degradation), ...]
 
-        print(f"    mean_ep_reward={mean_r:.1f}  mean_ep_len={mean_l:.0f}")
-        print(f"    OOB%  vision={v_oob:.1f}  audio={a_oob:.1f}  prox={p_oob:.1f}")
+    with mp.Pool(processes=n_workers, maxtasksperchild=1) as pool:
+        results_list = pool.map(run_experiment_worker, args)
+
+    all_results = dict(results_list)
+
+    for name, data in all_results.items():
+        mean_r = data["ep_reward"].mean()
+        mean_l = data["ep_len"].mean()
+        v_oob  = data["vision_oob"].mean() * 100
+        a_oob  = data["audio_oob"].mean()  * 100
+        p_oob  = data["proximity_oob"].mean() * 100
+        print(f"  {name}:  reward={mean_r:.1f}  len={mean_l:.0f}  "
+              f"OOB%  vision={v_oob:.1f}  audio={a_oob:.1f}  prox={p_oob:.1f}")
 
     # Save flat npz
     flat = {}
